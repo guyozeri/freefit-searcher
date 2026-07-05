@@ -66,6 +66,24 @@ python build_js.py
 python build_lookups.py     # taxonomy lookups
 ```
 
+## The Telegram bot (`bot.py`)
+
+A multi-user Telegram bot — each Telegram user logs into their **own** FreeFit
+account and books for themselves. Their device token is stored in
+`bot_sessions.json` (gitignored).
+
+```
+pip install -r requirements.txt
+python fetch_clubs.py                     # once, so /clubs can search (writes output/clubs_api.json)
+export TELEGRAM_BOT_TOKEN=123456:ABC...   # from @BotFather
+python bot.py
+```
+
+Commands: `/login` (phone → SMS code), `/logout`, `/mybookings` (with cancel
+buttons), `/clubs <query>` (tap a result to see its lessons), `/lessons <clubId>`
+(with book buttons). Phone numbers and SMS codes pass through the Telegram
+chat, so run the bot somewhere you trust.
+
 ## The CLI (`book.py`)
 
 Same booking capability from the terminal — talks to the mobile app backend

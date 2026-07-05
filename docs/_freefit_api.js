@@ -66,13 +66,40 @@ window.FreeFit = (function () {
     if (!resp.ok) throw new Error(`${method}: HTTP ${resp.status}`);
     const env = await resp.json();
     if (env.Error && env.Error !== 0) {
-      throw new Error(env.Message || `${method} failed (Error ${env.Error})`);
+      const err = new Error(env.Message || `${method} failed (Error ${env.Error})`);
+      err.code = env.Error;
+      throw err;
     }
     let data = env.Data;
     if (typeof data === "string" && data.length) {
       try { data = JSON.parse(data); } catch (_) { /* leave as string */ }
     }
     return data;
+  }
+
+  // The server-side session expires (Error 11); a fresh Login re-establishes it.
+  const SESSION_EXPIRED = [11];
+
+  async function loginRefresh() {
+    const s = loadSession();
+    if (!s.token_base) throw new Error("Not logged in.");
+    await call("Login", {
+      Token: makeToken(s.token_base), ID: s.id, PushToken: s.push_token || "",
+      Phone: s.phone, AppVer: APP_VER,
+    });
+  }
+
+  // Run an authenticated call; if the session expired, Login once and retry.
+  async function authed(method, payload) {
+    try {
+      return await call(method, payload);
+    } catch (e) {
+      if (SESSION_EXPIRED.includes(e.code)) {
+        await loginRefresh();
+        return await call(method, payload);
+      }
+      throw e;
+    }
   }
 
   // ---- auth ----
@@ -121,7 +148,7 @@ window.FreeFit = (function () {
 
   async function getLessons(clubId) {
     const s = loadSession();
-    const data = await call("GetClubLessonList", {
+    const data = await authed("GetClubLessonList", {
       Token: makeToken(s.token_base), ID: s.id,
       ClubID: String(clubId), Phone: s.phone,
     });
@@ -130,7 +157,7 @@ window.FreeFit = (function () {
 
   async function getOrders() {
     const s = loadSession();
-    const data = await call("GetClubOrders", {
+    const data = await authed("GetClubOrders", {
       Phone: s.phone, Token: makeToken(s.token_base), ID: s.id,
     });
     return Array.isArray(data) ? data : [];
@@ -139,7 +166,7 @@ window.FreeFit = (function () {
   // club = { id, tid (TerminalID), bt (BinType) }; lesson from getLessons()
   async function book(club, lesson) {
     const s = loadSession();
-    await call("ClubOrder", {
+    await authed("ClubOrder", {
       Phone: s.phone,
       BinType: club.bt,
       LessonName: lesson.LessonName,
@@ -164,7 +191,7 @@ window.FreeFit = (function () {
 
   async function cancel(clubOrderNum) {
     const s = loadSession();
-    await call("CancelClubOrder", {
+    await authed("CancelClubOrder", {
       Token: makeToken(s.token_base), Phone: s.phone,
       ClubOrderNum: String(clubOrderNum), ID: s.id,
     });
