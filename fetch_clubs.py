@@ -19,6 +19,7 @@ Usage:
 """
 
 import json
+import os
 import random
 from pathlib import Path
 
@@ -73,16 +74,41 @@ def to_detailed(club: dict) -> dict:
         "title": _clean(club.get("Name")),
         "address": address,
         "description": _clean(club.get("ClubTypeName")),
+        # Booking constants (not user secrets — same for everyone, needed to book).
+        "terminal_id": club.get("TerminalID"),
+        "bin_type": club.get("BinType"),
+        "is_rbox": club.get("IsStudioRbox", False),
     }
 
 
+def load_config() -> dict:
+    """Config from freefit_config.json, or from env vars (for CI)."""
+    if CONFIG_PATH.exists():
+        return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    env = {
+        "phone": os.environ.get("FREEFIT_PHONE"),
+        "id": os.environ.get("FREEFIT_ID"),
+        "token_base": os.environ.get("FREEFIT_TOKEN"),
+        "bin_id": os.environ.get("FREEFIT_BINID"),
+    }
+    if not all(env.values()):
+        raise SystemExit("No freefit_config.json and FREEFIT_* env vars are incomplete.")
+    return env
+
+
 def main():
-    cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    cfg = load_config()
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     print("Fetching club list from the FreeFit mobile API...")
     clubs = fetch_club_list(cfg)
     print(f"  Got {len(clubs)} clubs")
+
+    # A soft failure (Error:0 but empty/degraded ClubList from a stale token or
+    # partial outage) must not overwrite and auto-commit an empty dataset.
+    if len(clubs) < 100:
+        raise SystemExit(f"Refusing to overwrite data: only {len(clubs)} clubs returned "
+                         "(expected ~2600). Leaving the last-good data in place.")
 
     (OUTPUT_DIR / "clubs_api.json").write_text(
         json.dumps(clubs, ensure_ascii=False, indent=2), encoding="utf-8")

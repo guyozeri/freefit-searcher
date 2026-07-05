@@ -218,13 +218,115 @@
     .ac-wrap { min-width: 100%; }
     #map { height: 400px; }
   }
+
+  /* ── Auth bar ── */
+  .auth-bar {
+    position: absolute; top: 16px; left: 16px;
+    display: flex; gap: 8px; align-items: center;
+    font-size: 13px;
+  }
+  .auth-bar .who { color: #cdd; }
+  .auth-btn {
+    padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 13px; background: #4a6cf7; color: #fff; font-weight: 600;
+  }
+  .auth-btn.ghost { background: rgba(255,255,255,0.15); }
+  .auth-btn:hover { opacity: 0.9; }
+
+  /* club-card lessons button */
+  .card-actions { margin-top: 12px; }
+  .lessons-btn {
+    padding: 8px 14px; border: 2px solid #4a6cf7; border-radius: 8px;
+    background: #fff; color: #4a6cf7; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .lessons-btn:hover { background: #4a6cf7; color: #fff; }
+  .lessons-panel { margin-top: 12px; border-top: 1px solid #eee; padding-top: 12px; }
+  .lesson-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 8px 0; border-bottom: 1px solid #f3f3f3; font-size: 14px;
+  }
+  .lesson-row:last-child { border-bottom: none; }
+  .lesson-info { flex: 1; min-width: 0; }
+  .lesson-time { font-weight: 600; color: #1a1a2e; }
+  .lesson-meta { color: #777; font-size: 12px; }
+  .lesson-full { color: #c0392b; font-size: 12px; font-weight: 600; }
+  .lesson-booked { color: #27ae60; font-size: 12px; font-weight: 600; }
+  .book-btn {
+    padding: 6px 14px; border: none; border-radius: 8px; cursor: pointer;
+    font-size: 13px; font-weight: 600; background: #27ae60; color: #fff; white-space: nowrap;
+  }
+  .book-btn:disabled { background: #ccc; cursor: default; }
+  .cancel-btn { background: #c0392b; }
+  .panel-msg { font-size: 13px; color: #777; padding: 6px 0; }
+
+  /* ── Modal / drawer ── */
+  .overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 14px; padding: 28px; width: 92%; max-width: 380px;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.25);
+  }
+  .modal h2 { font-size: 20px; margin-bottom: 6px; color: #1a1a2e; }
+  .modal p { font-size: 13px; color: #777; margin-bottom: 16px; }
+  .modal input { width: 100%; margin-bottom: 12px; }
+  .modal .auth-btn { width: 100%; padding: 12px; font-size: 15px; }
+  .modal-err { color: #c0392b; font-size: 13px; min-height: 18px; margin-bottom: 8px; }
+  .modal-close { float: left; background: none; border: none; font-size: 22px; cursor: pointer; color: #999; line-height: 1; }
+
+  /* Bookings drawer */
+  .drawer {
+    background: #fff; border-radius: 14px; padding: 24px; width: 94%; max-width: 520px;
+    max-height: 80vh; overflow-y: auto; box-shadow: 0 12px 48px rgba(0,0,0,0.25);
+  }
+  .drawer h2 { font-size: 20px; margin-bottom: 16px; color: #1a1a2e; }
+  .order-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f3f3;
+  }
+  .order-row:last-child { border-bottom: none; }
 </style>
 </head>
 <body>
 
 <div class="header">
+  <div class="auth-bar" id="auth-bar">
+    <span class="who" id="auth-who"></span>
+    <button class="auth-btn" id="login-btn">Log in to book</button>
+    <button class="auth-btn ghost" id="bookings-btn" style="display:none">My bookings</button>
+    <button class="auth-btn ghost" id="logout-btn" style="display:none">Log out</button>
+  </div>
   <h1>FreeFit Club Search</h1>
   <p>Search across 2,705 fitness clubs in Israel</p>
+</div>
+
+<!-- Login modal -->
+<div class="overlay" id="login-overlay">
+  <div class="modal">
+    <button class="modal-close" id="login-close">&times;</button>
+    <h2>Log in to FreeFit</h2>
+    <p>Enter your phone number — the same one you use in the FreeFit app. We'll text you a code.</p>
+    <div class="modal-err" id="login-err"></div>
+    <div id="step-phone">
+      <input type="text" id="phone-input" inputmode="tel" placeholder="05XXXXXXXX" dir="ltr">
+      <button class="auth-btn" id="send-code-btn">Send code</button>
+    </div>
+    <div id="step-code" style="display:none">
+      <input type="text" id="code-input" inputmode="numeric" placeholder="SMS code" dir="ltr">
+      <button class="auth-btn" id="verify-btn">Verify &amp; log in</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bookings drawer -->
+<div class="overlay" id="bookings-overlay">
+  <div class="drawer">
+    <button class="modal-close" id="bookings-close">&times;</button>
+    <h2>My bookings</h2>
+    <div id="bookings-body"><div class="panel-msg">Loading…</div></div>
+  </div>
 </div>
 
 <div class="container">
@@ -267,6 +369,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <script src="_clubs_data.js"></script>
 <script src="_city_coords.js"></script>
+<script src="_freefit_api.js"></script>
 <script>
 (function() {
   const qInput = document.getElementById('q');
@@ -299,6 +402,13 @@
       if (cc) { club.lat = cc[0]; club.lng = cc[1]; }
     }
   });
+
+  const clubsById = {};
+  CLUBS.forEach(club => { clubsById[club.id] = club; });
+
+  // Keep the header count in sync with the (daily-refreshed) data.
+  const subtitle = document.querySelector('.header p');
+  if (subtitle) subtitle.textContent = 'Search across ' + CLUBS.length.toLocaleString() + ' fitness clubs in Israel';
 
   CITIES.forEach(c => {
     const opt = document.createElement('option');
@@ -352,6 +462,7 @@
       const needsMore = desc.length > 200;
       const id = 'desc-' + club.id;
       const showDist = originLat != null && club._dist != null && club._dist < 99999;
+      const canBook = club.tid != null;
       html += '<div class="club-card">' +
         '<div class="club-header">' +
           '<div class="club-name">' + highlightText(club.t, terms) + '</div>' +
@@ -360,6 +471,10 @@
         '<div class="club-address">' + highlightText(club.a, terms) + '</div>' +
         (desc ? '<div class="club-desc" id="' + id + '">' + highlightText(desc, terms) + '</div>' : '') +
         (needsMore ? '<button class="show-more" onclick="toggleDesc(\'' + id + '\', this)">show more</button>' : '') +
+        (canBook ? '<div class="card-actions">' +
+            '<button class="lessons-btn" onclick="toggleLessons(' + club.id + ', this)">View lessons</button>' +
+          '</div>' +
+          '<div class="lessons-panel" id="lessons-' + club.id + '" style="display:none"></div>' : '') +
         '</div>';
     });
     if (filtered.length > 100) {
@@ -598,6 +713,171 @@
   qInput.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(doSearch, 200); });
   citySelect.addEventListener('change', doSearch);
 
+  // ── Auth / Booking ──
+
+  const loginBtn = document.getElementById('login-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const bookingsBtn = document.getElementById('bookings-btn');
+  const authWho = document.getElementById('auth-who');
+  const loginOverlay = document.getElementById('login-overlay');
+  const bookingsOverlay = document.getElementById('bookings-overlay');
+  const stepPhone = document.getElementById('step-phone');
+  const stepCode = document.getElementById('step-code');
+  const phoneInput = document.getElementById('phone-input');
+  const codeInput = document.getElementById('code-input');
+  const loginErr = document.getElementById('login-err');
+  const sendCodeBtn = document.getElementById('send-code-btn');
+  const verifyBtn = document.getElementById('verify-btn');
+
+  function refreshAuthUI() {
+    const inn = FreeFit.isLoggedIn();
+    loginBtn.style.display = inn ? 'none' : '';
+    logoutBtn.style.display = inn ? '' : 'none';
+    bookingsBtn.style.display = inn ? '' : 'none';
+    authWho.textContent = inn ? ('☑ ' + FreeFit.currentPhone()) : '';
+  }
+
+  function openLogin() {
+    loginErr.textContent = '';
+    stepPhone.style.display = '';
+    stepCode.style.display = 'none';
+    phoneInput.value = FreeFit.currentPhone() || '';
+    loginOverlay.classList.add('open');
+    phoneInput.focus();
+  }
+  function closeLogin() { loginOverlay.classList.remove('open'); }
+
+  loginBtn.addEventListener('click', openLogin);
+  document.getElementById('login-close').addEventListener('click', closeLogin);
+  loginOverlay.addEventListener('click', e => { if (e.target === loginOverlay) closeLogin(); });
+  logoutBtn.addEventListener('click', () => { FreeFit.logout(); refreshAuthUI(); closeAllLessons(); });
+
+  sendCodeBtn.addEventListener('click', async () => {
+    const phone = phoneInput.value.trim();
+    if (!/^0\d{8,9}$/.test(phone)) { loginErr.textContent = 'Enter a valid phone number (e.g. 0521234567).'; return; }
+    loginErr.textContent = '';
+    sendCodeBtn.disabled = true; sendCodeBtn.textContent = 'Sending…';
+    try {
+      await FreeFit.sendSmsCode(phone);
+      stepPhone.style.display = 'none';
+      stepCode.style.display = '';
+      codeInput.value = '';
+      codeInput.focus();
+    } catch (e) { loginErr.textContent = e.message; }
+    finally { sendCodeBtn.disabled = false; sendCodeBtn.textContent = 'Send code'; }
+  });
+
+  verifyBtn.addEventListener('click', async () => {
+    const phone = phoneInput.value.trim();
+    const code = codeInput.value.trim();
+    if (!code) { loginErr.textContent = 'Enter the code from the SMS.'; return; }
+    loginErr.textContent = '';
+    verifyBtn.disabled = true; verifyBtn.textContent = 'Verifying…';
+    try {
+      await FreeFit.verifyAndLogin(phone, code);
+      closeLogin();
+      refreshAuthUI();
+    } catch (e) { loginErr.textContent = e.message; }
+    finally { verifyBtn.disabled = false; verifyBtn.textContent = 'Verify & log in'; }
+  });
+
+  // ── Lessons ──
+
+  function closeAllLessons() {
+    document.querySelectorAll('.lessons-panel').forEach(p => { p.style.display = 'none'; p.innerHTML = ''; });
+    document.querySelectorAll('.lessons-btn').forEach(b => { b.textContent = 'View lessons'; });
+  }
+
+  function renderLessons(panel, clubId, lessons) {
+    const club = clubsById[clubId];
+    if (!lessons.length) { panel.innerHTML = '<div class="panel-msg">No upcoming lessons.</div>'; return; }
+    let html = '';
+    lessons.forEach((l, i) => {
+      const rid = 'l-' + clubId + '-' + i;
+      lessonCache[rid] = l;
+      let action;
+      if (l.IsUserBooked) action = '<span class="lesson-booked">✓ Booked</span>';
+      else if (l.IsLessonFull) action = '<span class="lesson-full">Full</span>';
+      else action = '<button class="book-btn" onclick="bookLesson(' + clubId + ",'" + rid + "'" + ', this)">Book</button>';
+      html += '<div class="lesson-row">' +
+        '<div class="lesson-info">' +
+          '<div class="lesson-time">' + escapeHtml(l.LessonStartDate) + ' · ' + escapeHtml(l.LessonName || '') + '</div>' +
+          '<div class="lesson-meta">' + escapeHtml(l.CoachName || '') +
+            (l.SlotsAvailable != null ? ' · ' + l.SlotsAvailable + ' spots' : '') + '</div>' +
+        '</div>' + action +
+        '</div>';
+    });
+    panel.innerHTML = html;
+  }
+
+  const lessonCache = {};
+
+  window.toggleLessons = async function (clubId, btn) {
+    const panel = document.getElementById('lessons-' + clubId);
+    if (!panel) return;
+    if (panel.style.display !== 'none' && panel.innerHTML) {
+      panel.style.display = 'none'; panel.innerHTML = ''; btn.textContent = 'View lessons';
+      return;
+    }
+    if (!FreeFit.isLoggedIn()) { openLogin(); return; }
+    panel.style.display = ''; btn.textContent = 'Hide lessons';
+    panel.innerHTML = '<div class="panel-msg">Loading lessons…</div>';
+    try {
+      renderLessons(panel, clubId, await FreeFit.getLessons(clubId));
+    } catch (e) {
+      panel.innerHTML = '<div class="panel-msg">' + escapeHtml(e.message) + '</div>';
+    }
+  };
+
+  window.bookLesson = async function (clubId, rid, btn) {
+    const club = clubsById[clubId];
+    const lesson = lessonCache[rid];
+    if (!club || !lesson) return;
+    if (!confirm('Book ' + lesson.LessonName + ' on ' + lesson.LessonStartDate + '?')) return;
+    btn.disabled = true; btn.textContent = 'Booking…';
+    try {
+      await FreeFit.book(club, lesson);
+      const panel = document.getElementById('lessons-' + clubId);
+      renderLessons(panel, clubId, await FreeFit.getLessons(clubId));
+    } catch (e) {
+      btn.disabled = false; btn.textContent = 'Book';
+      alert('Could not book: ' + e.message);
+    }
+  };
+
+  // ── My bookings ──
+
+  bookingsBtn.addEventListener('click', async () => {
+    bookingsOverlay.classList.add('open');
+    const body = document.getElementById('bookings-body');
+    body.innerHTML = '<div class="panel-msg">Loading…</div>';
+    try {
+      const orders = await FreeFit.getOrders();
+      if (!orders.length) { body.innerHTML = '<div class="panel-msg">No upcoming bookings.</div>'; return; }
+      body.innerHTML = orders.map(o =>
+        '<div class="order-row">' +
+          '<div class="lesson-info">' +
+            '<div class="lesson-time">' + escapeHtml(o.SupplyDate || '') + ' · ' + escapeHtml(o.LessonName || '') + '</div>' +
+            '<div class="lesson-meta">' + escapeHtml(o.ClubName || '') + '</div>' +
+          '</div>' +
+          (o.IsCancelAllow
+            ? '<button class="book-btn cancel-btn" onclick="cancelOrder(' + o.ID + ', this)">Cancel</button>'
+            : '<span class="lesson-meta">—</span>') +
+        '</div>'
+      ).join('');
+    } catch (e) { body.innerHTML = '<div class="panel-msg">' + escapeHtml(e.message) + '</div>'; }
+  });
+  document.getElementById('bookings-close').addEventListener('click', () => bookingsOverlay.classList.remove('open'));
+  bookingsOverlay.addEventListener('click', e => { if (e.target === bookingsOverlay) bookingsOverlay.classList.remove('open'); });
+
+  window.cancelOrder = async function (orderNum, btn) {
+    if (!confirm('Cancel this booking?')) return;
+    btn.disabled = true; btn.textContent = 'Cancelling…';
+    try { await FreeFit.cancel(orderNum); btn.closest('.order-row').remove(); }
+    catch (e) { btn.disabled = false; btn.textContent = 'Cancel'; alert('Could not cancel: ' + e.message); }
+  };
+
+  refreshAuthUI();
   doSearch();
 })();
 </script>

@@ -1,0 +1,47 @@
+name: Refresh club data
+
+# Fetches the club list from the FreeFit API once a day and commits the
+# regenerated search data (docs/_clubs_data.js, docs/_city_coords.js) so the
+# public site always loads a fresh cache without anyone having to log in.
+on:
+  schedule:
+    - cron: "0 3 * * *"   # 03:00 UTC daily
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements.txt
+
+      - name: Fetch clubs and rebuild data
+        env:
+          FREEFIT_PHONE: ${{ secrets.FREEFIT_PHONE }}
+          FREEFIT_ID: ${{ secrets.FREEFIT_ID }}
+          FREEFIT_TOKEN: ${{ secrets.FREEFIT_TOKEN }}
+          FREEFIT_BINID: ${{ secrets.FREEFIT_BINID }}
+        run: |
+          python fetch_clubs.py
+          python build_js.py
+          cp output/_clubs_data.js output/_city_coords.js docs/
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet docs/_clubs_data.js docs/_city_coords.js; then
+            git add docs/_clubs_data.js docs/_city_coords.js
+            git commit -m "Refresh club data ($(date -u +%Y-%m-%d))"
+            git push
+          else
+            echo "No club changes today."
+          fi

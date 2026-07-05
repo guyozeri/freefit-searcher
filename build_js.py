@@ -132,13 +132,18 @@ def main():
             city = normalize_city(addr.split(",")[-1].strip())
             if city:
                 cities_set.add(city)
-        slim.append({
+        entry = {
             "id": c["id"],
             "t": c["title"],
             "a": addr,
             "c": city,
             "d": c.get("description", ""),
-        })
+        }
+        # Booking constants, when the data came from the API (fetch_clubs.py).
+        if c.get("terminal_id"):
+            entry["tid"] = c["terminal_id"]
+            entry["bt"] = c.get("bin_type", 2)
+        slim.append(entry)
 
     cities_sorted = sorted(cities_set)
 
