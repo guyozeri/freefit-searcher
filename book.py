@@ -17,11 +17,13 @@ Usage:
     python book.py login              # SMS-verify + save the existing/generated token
     python book.py login --new        # generate a FRESH device token, then SMS-verify it
     python book.py orders             # list your current bookings
-    python book.py lessons <club>     # list classes at a configured club
+    python book.py clubs [query]      # search the club list from the API
+    python book.py lessons <club>     # list classes at a club
     python book.py book <club> <RboxLessonID>
     python book.py cancel <ClubOrderNum>
 
-<club> is a key from the "clubs" map in freefit_config.json (e.g. "bet-hana").
+<club> is either a raw ClubID (from `clubs`, resolved against the list that
+fetch_clubs.py caches) or a friendly alias defined in freefit_config.json.
 """
 
 import argparse
@@ -34,6 +36,7 @@ import requests
 
 BASE_URL = "https://ffservice.freefit.co.il/MobileManagementService"
 CONFIG_PATH = Path(__file__).parent / "freefit_config.json"
+CLUBS_CACHE = Path(__file__).parent / "output" / "clubs_api.json"
 
 SESSION = requests.Session()
 SESSION.headers.update({
@@ -129,6 +132,23 @@ def get_orders(cfg: dict) -> list:
     return data or []
 
 
+def get_club_list(cfg: dict) -> list:
+    """The app's full club list (GetMobileFullData -> ClubList), cached to output/."""
+    if CLUBS_CACHE.exists():
+        return json.loads(CLUBS_CACHE.read_text(encoding="utf-8"))
+    data, _ = call("GetMobileFullData", {
+        "Phone": cfg["phone"],
+        "BinID": cfg["bin_id"],
+        "ID": cfg["id"],
+        "Token": make_token(cfg["token_base"]),
+    })
+    clubs = data.get("ClubList", []) if isinstance(data, dict) else []
+    if clubs:
+        CLUBS_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        CLUBS_CACHE.write_text(json.dumps(clubs, ensure_ascii=False, indent=2), encoding="utf-8")
+    return clubs
+
+
 def get_lessons(cfg: dict, club_id) -> list:
     data, _ = call("GetClubLessonList", {
         "Token": make_token(cfg["token_base"]),
@@ -176,13 +196,19 @@ def cancel(cfg: dict, order_num) -> str:
 
 # ---- CLI ------------------------------------------------------------------
 
-def resolve_club(cfg: dict, key: str, need_terminal: bool = False) -> dict:
-    club = cfg["clubs"].get(key)
-    if not club:
-        raise SystemExit(f"Unknown club '{key}'. Configured: {', '.join(cfg['clubs'])}")
-    if need_terminal and not club.get("terminal_id"):
-        raise SystemExit(f"Club '{key}' has no terminal_id set in config; capture one ClubOrder to fill it.")
-    return club
+def resolve_club(cfg: dict, key: str) -> dict:
+    """Resolve a club by config alias or by raw ClubID (from the fetched club list)."""
+    alias = cfg.get("clubs", {}).get(key)
+    if alias and alias.get("terminal_id"):
+        return {"club_id": str(alias["club_id"]), "terminal_id": str(alias["terminal_id"]),
+                "bin_type": alias.get("bin_type", cfg.get("bin_type", 2))}
+
+    club_id = str(alias["club_id"]) if alias else key
+    for c in get_club_list(cfg):
+        if str(c["RecordID"]) == club_id:
+            return {"club_id": club_id, "terminal_id": str(c["TerminalID"]), "bin_type": c["BinType"]}
+
+    raise SystemExit(f"Club '{key}' not found. Run `python fetch_clubs.py`, or pass a numeric ClubID.")
 
 
 def main():
@@ -192,7 +218,9 @@ def main():
     p_login = sub.add_parser("login", help="SMS-verify and save the device token")
     p_login.add_argument("--new", action="store_true", help="generate a fresh device token first")
     sub.add_parser("orders", help="list your current bookings")
-    p_lessons = sub.add_parser("lessons", help="list classes at a configured club")
+    p_clubs = sub.add_parser("clubs", help="search the club list from the API")
+    p_clubs.add_argument("query", nargs="?", default="", help="filter by name or address")
+    p_lessons = sub.add_parser("lessons", help="list classes at a club (alias or ClubID)")
     p_lessons.add_argument("club")
     p_book = sub.add_parser("book", help="book a class")
     p_book.add_argument("club")
@@ -210,6 +238,14 @@ def main():
         for o in get_orders(cfg):
             print(f"[{o['ID']}] {o.get('SupplyDate','?')}  {o.get('LessonName','?')}  @ {o.get('ClubName','?')}")
 
+    elif args.cmd == "clubs":
+        q = args.query.strip()
+        matches = [c for c in get_club_list(cfg)
+                   if q in (c.get("Name") or "") or q in (c.get("Address") or "")]
+        for c in matches:
+            print(f"{c['RecordID']:>7}  {(c.get('Name') or '').strip()}  —  {(c.get('AreaName') or '').strip()}")
+        print(f"\n{len(matches)} club(s)" + (f" matching '{q}'" if q else ""))
+
     elif args.cmd == "lessons":
         club = resolve_club(cfg, args.club)
         for l in get_lessons(cfg, club["club_id"]):
@@ -222,7 +258,7 @@ def main():
                   f"({l.get('SlotsAvailable','?')} slots) {' '.join(flags)}")
 
     elif args.cmd == "book":
-        club = resolve_club(cfg, args.club, need_terminal=True)
+        club = resolve_club(cfg, args.club)
         lessons = get_lessons(cfg, club["club_id"])
         match = next((l for l in lessons if str(l["RboxLessonID"]) == args.rbox_lesson_id), None)
         if not match:

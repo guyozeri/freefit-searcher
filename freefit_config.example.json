@@ -4,14 +4,9 @@
   "id": "",
   "token_base": "",
   "card_number": "",
+  "bin_id": "",
   "app_ver": "2.2.20",
   "push_token": "00000000-0000-0000-0000-000000000000",
-  "clubs": {
-    "my-club": {
-      "club_id": "",
-      "terminal_id": "",
-      "bin_type": 2,
-      "note": "club_id/terminal_id/bin_type come from a real ClubOrder request (capture once with freefit_capture.py)"
-    }
-  }
+  "_clubs_note": "Optional friendly aliases; booking also works by raw ClubID via fetch_clubs.py's club list.",
+  "clubs": {}
 }
