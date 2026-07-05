@@ -3,3 +3,7 @@ output/
 __pycache__/
 
 .DS_Store
+
+# booking automation — secrets and captured traffic
+freefit_config.json
+freefit_calls.log

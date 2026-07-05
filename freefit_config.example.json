@@ -1,0 +1,17 @@
+{
+  "_comment": "Copy to freefit_config.json and fill in. The real file is gitignored (holds your auth token).",
+  "phone": "05XXXXXXXX",
+  "id": "",
+  "token_base": "",
+  "card_number": "",
+  "app_ver": "2.2.20",
+  "push_token": "00000000-0000-0000-0000-000000000000",
+  "clubs": {
+    "my-club": {
+      "club_id": "",
+      "terminal_id": "",
+      "bin_type": 2,
+      "note": "club_id/terminal_id/bin_type come from a real ClubOrder request (capture once with freefit_capture.py)"
+    }
+  }
+}
